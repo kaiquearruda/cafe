@@ -1,0 +1,89 @@
+
+import { GoogleGenAI } from "@google/genai";
+import { CoffeeQuote, ChatMessage } from "../types";
+
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY || "";
+  if (!apiKey) {
+    console.warn("API Key não encontrada. O serviço de IA funcionará em modo fallback.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
+/**
+ * Generates a strategic suggestion for coffee producers based on current market quotes.
+ */
+export const getMarketSuggestion = async (quotes: CoffeeQuote[]) => {
+  const ai = getAIClient();
+  if (!ai) return "Analise a tendência de médio prazo antes de fechar grandes lotes.";
+
+  const prompt = `
+    Como um consultor especialista no mercado de café brasileiro, analise os seguintes dados:
+    ${quotes.map(q => `${q.type}: Preço atual R$ ${q.currentPrice}, Preço anterior R$ ${q.lastPrice}`).join('\n')}
+    
+    Forneça uma sugestão estratégica curta (máximo 3 frases) para um produtor sobre vender ou segurar sua produção hoje.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+      }
+    });
+
+    return response.text || "Mantenha atenção às variações cambiais e climáticas para decidir o melhor momento de venda.";
+  } catch (error) {
+    console.error("Gemini Market Suggestion Error:", error);
+    return "Analise as variações do dólar e estoques globais antes de movimentar seu lote.";
+  }
+};
+
+/**
+ * Simulates a response from a buyer or producer in the chat.
+ */
+export const getChatAutoReply = async (
+  messages: ChatMessage[], 
+  role: 'BUYER' | 'PRODUCER', 
+  productionInfo: string
+) => {
+  const ai = getAIClient();
+  if (!ai) return "Entendido. Vamos conversar mais sobre os detalhes desse lote em breve.";
+
+  const context = messages.slice(-5).map(m => `${m.senderId}: ${m.text}`).join('\n');
+  const persona = role === 'BUYER' 
+    ? "Você é um comprador de café de uma grande exportadora. Você é profissional, direto e busca qualidade. Você está interessado no lote abaixo."
+    : "Você é um produtor de café experiente. Você valoriza seu grão e busca um preço justo. Você está negociando o lote abaixo.";
+
+  const prompt = `
+    ${persona}
+    Lote em negociação: ${productionInfo}
+    
+    Histórico recente da conversa:
+    ${context}
+    
+    Responda à última mensagem de forma natural, curta (máximo 2 frases) e profissional. 
+    Se for comprador, foque em amostras ou logística. 
+    Se for produtor, foque em qualidade ou pontuação SCA.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        temperature: 0.8,
+        maxOutputTokens: 100
+      }
+    });
+
+    return response.text?.trim() || "Entendido. Vamos alinhar os próximos passos da negociação.";
+  } catch (error) {
+    console.error("Chat Auto Reply Gemini Error:", error);
+    return "Certo, recebi sua mensagem. Vou analisar e te retorno com uma proposta.";
+  }
+};
