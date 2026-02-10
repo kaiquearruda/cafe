@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { User, UserRole, CoffeeQuote, Production, Tip, Interest, SubscriptionPlan, PriceAlert, InventoryItem, ChatSession, ChatMessage } from './types';
+import { User, UserRole, CoffeeQuote, Production, Tip, Interest, SubscriptionPlan, PriceAlert, InventoryItem, ChatSession, ChatMessage, PriceChangeLog } from './types';
 import { INITIAL_QUOTES, INITIAL_TIPS } from './constants';
 import { getChatAutoReply } from './services/geminiService';
 import Layout from './components/Layout';
@@ -51,6 +51,7 @@ const App: React.FC = () => {
 
   const [quotes, setQuotes] = useState<CoffeeQuote[]>(INITIAL_QUOTES || []);
   const [tips, setTips] = useState<Tip[]>(INITIAL_TIPS || []);
+  const [priceLogs, setPriceLogs] = useState<PriceChangeLog[]>([]);
   const [productions, setProductions] = useState<Production[]>([
     {
       id: 'prod_mock1',
@@ -63,6 +64,7 @@ const App: React.FC = () => {
       location: 'Carmo de Minas, MG',
       isPublic: true,
       status: 'available',
+      isFeatured: true,
       createdAt: new Date().toISOString()
     }
   ]);
@@ -82,29 +84,29 @@ const App: React.FC = () => {
       let role = UserRole.PRODUCER;
       let userId = PRODUCER_ID;
       
-      if (email.toLowerCase().includes('admin')) {
+      const normalizedEmail = email.toLowerCase();
+      if (normalizedEmail.includes('admin')) {
         role = UserRole.ADMIN;
         userId = 'usr_admin_1';
-      } else if (email.toLowerCase().includes('comprador')) {
+      } else if (normalizedEmail.includes('comprador') || normalizedEmail.includes('buyer')) {
         role = UserRole.BUYER;
         userId = BUYER_ID;
       }
 
       const mockUser: User = {
         id: userId,
-        name: email.split('@')[0].toUpperCase(),
+        name: normalizedEmail.split('@')[0].toUpperCase(),
         email,
         role,
-        plan: 'elite',
-        isPremium: true,
+        plan: role === UserRole.PRODUCER ? 'elite' : 'free',
+        isPremium: role === UserRole.PRODUCER,
         isBlocked: false,
         createdAt: new Date().toISOString()
       };
+      
       setUser(mockUser);
       setAllUsers(prev => prev.find(u => u.id === mockUser.id) ? prev : [...prev, mockUser]);
-      navigate(role === UserRole.ADMIN ? '/admin' : '/dashboard');
-    } catch (e) {
-      console.error("Login failed", e);
+      navigate('/dashboard', { replace: true });
     } finally {
       setIsAuthenticating(false);
     }
@@ -126,7 +128,7 @@ const App: React.FC = () => {
       };
       setUser(mockUser);
       setAllUsers(prev => [...prev, mockUser]);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } finally {
       setIsAuthenticating(false);
     }
@@ -134,7 +136,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const handleSendMessage = async (sessionId: string, text: string) => {
@@ -165,33 +167,91 @@ const App: React.FC = () => {
     navigate('/dashboard');
   };
 
-  if (!user) return <LandingPage onLogin={handleLogin} onSignup={handleSignup} isAuthenticating={isAuthenticating} />;
+  const handleToggleFeatured = (productionId: string) => {
+    setProductions(prev => prev.map(p => p.id === productionId ? { ...p, isFeatured: !p.isFeatured } : p));
+  };
+
+  const handleOpenBuyerChat = (productionId: string) => {
+    if (!user) return;
+    const prod = productions.find(p => p.id === productionId);
+    if (!prod) return;
+
+    let existingSession = chatSessions.find(s => s.productionId === productionId && s.buyerId === user.id);
+    if (existingSession) {
+      navigate(`/chat/${existingSession.id}`);
+      return;
+    }
+
+    const sessionId = 'chat_' + Date.now();
+    const newSession: ChatSession = {
+      id: sessionId,
+      productionId,
+      buyerId: user.id,
+      producerId: prod.producerId,
+      messages: [{
+        id: 'msg_init',
+        senderId: user.id,
+        text: `Olá! Tenho interesse no seu lote de ${prod.quality}. Gostaria de negociar.`,
+        timestamp: new Date().toISOString()
+      }],
+      lastUpdate: new Date().toISOString(),
+      status: 'open'
+    };
+
+    const newInterest: Interest = {
+      id: 'int_' + Date.now(),
+      productionId,
+      buyerId: user.id,
+      buyerName: user.name,
+      createdAt: new Date().toISOString()
+    };
+
+    setChatSessions(prev => [...prev, newSession]);
+    setInterests(prev => [...prev, newInterest]);
+    navigate(`/chat/${sessionId}`);
+  };
+
+  if (!user) {
+    return <LandingPage onLogin={handleLogin} onSignup={handleSignup} isAuthenticating={isAuthenticating} />;
+  }
 
   return (
     <Layout user={user} onLogout={handleLogout}>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/market" element={<MarketView quotes={quotes} />} />
         <Route path="/tips" element={<TipsView tips={tips} />} />
         <Route path="/chat/:sessionId" element={<ChatRouteWrapper chatSessions={chatSessions} productions={productions} user={user} onSendMessage={handleSendMessage} onCloseDeal={handleCloseDeal} />} />
         
         {user.role === UserRole.PRODUCER && (
           <>
-            <Route path="/dashboard" element={<DashboardProducer userPlan={user.plan} quotes={quotes} productions={productions.filter(p => p.producerId === user.id)} interests={interests} priceAlerts={priceAlerts} inventory={inventory} onSetInventory={setInventory} onAddAlert={(t, p) => setPriceAlerts([{id: Date.now().toString(), coffeeType: t, targetPrice: p, isTriggered: false, createdAt: new Date().toISOString()}, ...priceAlerts])} onRemoveAlert={(id) => setPriceAlerts(prev => prev.filter(a => a.id !== id))} onNavigate={navigate} />} />
+            <Route path="/dashboard" element={<DashboardProducer userPlan={user.plan} quotes={quotes} productions={productions.filter(p => p.producerId === user.id)} interests={interests.filter(i => productions.find(p => p.id === i.productionId)?.producerId === user.id)} priceAlerts={priceAlerts} inventory={inventory} onSetInventory={setInventory} onAddAlert={(t, p) => setPriceAlerts([{id: Date.now().toString(), coffeeType: t, targetPrice: p, isTriggered: false, createdAt: new Date().toISOString()}, ...priceAlerts])} onRemoveAlert={(id) => setPriceAlerts(prev => prev.filter(a => a.id !== id))} onNavigate={navigate} />} />
             <Route path="/production" element={<ProductionManagement productions={productions.filter(p => p.producerId === user.id)} onAdd={(p) => setProductions(prev => [{...p, id: 'p_'+Date.now(), producerId: user.id, status: 'available', createdAt: new Date().toISOString()}, ...prev])} onDelete={(id) => setProductions(prev => prev.filter(p => p.id !== id))} />} />
             <Route path="/billing" element={<SubscriptionView currentPlan={user.plan} onUpgrade={(p) => setUser({...user, plan: p})} />} />
           </>
         )}
 
         {user.role === UserRole.BUYER && (
-          <Route path="/dashboard" element={<DashboardBuyer availableCoffee={productions.filter(p => p.status === 'available')} onExpressInterest={(pId) => navigate(`/chat/new_${pId}`)} />} />
+          <Route path="/dashboard" element={<DashboardBuyer availableCoffee={productions.filter(p => p.status === 'available' && p.isPublic)} onExpressInterest={handleOpenBuyerChat} />} />
         )}
 
         {user.role === UserRole.ADMIN && (
-          <Route path="/admin" element={<AdminPanel quotes={quotes} updateQuote={(id, price) => setQuotes(prev => prev.map(q => q.id === id ? {...q, currentPrice: price} : q))} tips={tips} onAddTip={(t) => setTips(prev => [{...t, id: 't_'+Date.now(), date: new Date().toISOString()}, ...prev])} buyers={allUsers.filter(u => u.role === UserRole.BUYER)} onToggleBlock={(id) => setAllUsers(prev => prev.map(u => u.id === id ? {...u, isBlocked: !u.isBlocked} : u))} interests={interests} productions={productions} />} />
+          <Route path="/admin" element={<AdminPanel quotes={quotes} updateQuote={(id, price) => {
+            const quote = quotes.find(q => q.id === id);
+            if (!quote) return;
+            const log: PriceChangeLog = {
+              id: Date.now().toString(),
+              coffeeType: quote.type,
+              oldPrice: quote.currentPrice,
+              newPrice: price,
+              adminName: user.name,
+              timestamp: new Date().toISOString()
+            };
+            setPriceLogs(prev => [log, ...prev]);
+            setQuotes(prev => prev.map(q => q.id === id ? { ...q, lastPrice: q.currentPrice, currentPrice: price, updatedAt: new Date().toISOString() } : q));
+          }} priceLogs={priceLogs} tips={tips} onAddTip={(t) => setTips(prev => [{...t, id: Date.now().toString(), date: new Date().toISOString().split('T')[0]}, ...prev])} buyers={allUsers.filter(u => u.role === UserRole.BUYER)} onToggleBlock={(id) => setAllUsers(prev => prev.map(u => u.id === id ? { ...u, isBlocked: !u.isBlocked } : u))} interests={interests} productions={productions} onToggleFeatured={handleToggleFeatured} />} />
         )}
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>
   );

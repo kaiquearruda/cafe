@@ -1,27 +1,30 @@
 
 import React from 'react';
-import { CoffeeQuote, Tip, User, Interest, Production } from '../types';
+import { CoffeeQuote, Tip, User, Interest, Production, PriceChangeLog } from '../types';
 import { 
   Save, RefreshCw, Plus, Trash2, Edit3, Users, 
   ShieldAlert, ShieldCheck, Mail, Calendar, ExternalLink, 
-  Search, History, X, Info, Coffee
+  Search, History, X, Info, Coffee, ArrowRight,
+  TrendingUp, TrendingDown, Zap, MapPin
 } from 'lucide-react';
 
 interface AdminPanelProps {
   quotes: CoffeeQuote[];
   updateQuote: (id: string, newPrice: number) => void;
+  priceLogs: PriceChangeLog[];
   tips: Tip[];
   onAddTip: (tip: Omit<Tip, 'id' | 'date'>) => void;
   buyers: User[];
   onToggleBlock: (id: string) => void;
   interests: Interest[];
   productions: Production[];
+  onToggleFeatured: (id: string) => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  quotes, updateQuote, tips, onAddTip, buyers, onToggleBlock, interests, productions 
+  quotes, updateQuote, priceLogs, tips, onAddTip, buyers, onToggleBlock, interests, productions, onToggleFeatured 
 }) => {
-  const [activeTab, setActiveTab] = React.useState<'quotes' | 'tips' | 'buyers'>('quotes');
+  const [activeTab, setActiveTab] = React.useState<'quotes' | 'tips' | 'buyers' | 'lots'>('quotes');
   const [selectedBuyer, setSelectedBuyer] = React.useState<User | null>(null);
   const [searchTerm, setSearchTerm] = React.useState("");
 
@@ -37,7 +40,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleUpdatePrice = (id: string) => {
     updateQuote(id, newPrices[id]);
-    alert('Cotação atualizada com sucesso!');
   };
 
   const handleAddTip = (e: React.FormEvent) => {
@@ -68,22 +70,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <p className="text-gray-500 font-medium">Controle operacional e gestão de ecossistema.</p>
         </div>
         
-        <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex bg-white p-1 rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
           <button 
             onClick={() => setActiveTab('quotes')}
-            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'quotes' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === 'quotes' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
           >
             Cotações
           </button>
           <button 
+            onClick={() => setActiveTab('lots')}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === 'lots' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
+          >
+            Lotes
+          </button>
+          <button 
             onClick={() => setActiveTab('tips')}
-            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'tips' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === 'tips' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
           >
             Conteúdo
           </button>
           <button 
             onClick={() => setActiveTab('buyers')}
-            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'buyers' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
+            className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all shrink-0 ${activeTab === 'buyers' ? 'bg-[#3e2723] text-white shadow-md' : 'text-gray-400 hover:text-[#3e2723]'}`}
           >
             Compradores
           </button>
@@ -92,24 +100,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Seção: Cotações */}
       {activeTab === 'quotes' && (
-        <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-green-50 rounded-xl">
-              <RefreshCw size={24} className="text-[#2e7d32]" />
-            </div>
-            <h3 className="text-2xl font-black text-[#3e2723]">Gerenciar Preços de Mercado</h3>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8">
-            {quotes.map(quote => (
-              <div key={quote.id} className="p-8 bg-[#fdfcf8] rounded-3xl border border-gray-100 flex flex-col justify-between group hover:border-[#2e7d32] transition-colors">
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <p className="font-black text-2xl text-[#3e2723]">{quote.type}</p>
-                    <span className="text-[10px] bg-white px-3 py-1 rounded-full border border-gray-100 font-bold uppercase text-gray-400">NY ICE / Bolsa</span>
-                  </div>
-                  <div className="space-y-4">
+        <div className="grid lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-4">
+          <section className="lg:col-span-5 space-y-8">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-green-50 rounded-xl">
+                  <RefreshCw size={24} className="text-[#2e7d32]" />
+                </div>
+                <h3 className="text-2xl font-black text-[#3e2723]">Atualizar Preços</h3>
+              </div>
+              <div className="space-y-6">
+                {quotes.map(quote => (
+                  <div key={quote.id} className="p-6 bg-[#fdfcf8] rounded-3xl border border-gray-100 flex flex-col group hover:border-[#2e7d32] transition-colors shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="font-black text-xl text-[#3e2723]">{quote.type}</p>
+                      <span className="text-[10px] bg-white px-3 py-1 rounded-full border border-gray-100 font-bold uppercase text-gray-400">NY ICE</span>
+                    </div>
                     <div>
-                      <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-2">Novo Preço da Saca (R$)</label>
+                      <label className="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-2">Novo Preço (R$)</label>
                       <div className="flex gap-3">
                         <input 
                           type="number" 
@@ -126,10 +134,106 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="lg:col-span-7 bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col max-h-[700px]">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#3e2723]/5 rounded-xl text-[#3e2723]">
+                  <History size={24} />
                 </div>
-                <p className="text-[10px] text-gray-400 italic mt-6 font-medium">Sincronizado em: {new Date(quote.updatedAt).toLocaleString('pt-BR')}</p>
+                <h3 className="text-2xl font-black text-[#3e2723]">Log de Auditoria</h3>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+              {priceLogs.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center py-20 opacity-20 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-100">
+                  <Info size={48} className="mb-4" />
+                  <p className="font-black text-xs uppercase tracking-widest">Nenhuma alteração registrada no sistema ainda</p>
+                </div>
+              ) : (
+                priceLogs.map(log => (
+                  <div key={log.id} className="p-5 bg-[#fdfcf8] rounded-[2rem] border border-gray-50 shadow-sm hover:bg-white hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${log.coffeeType === 'Arábica' ? 'bg-[#2e7d32]' : 'bg-[#8d6e63]'}`}></span>
+                        <p className="font-black text-[#3e2723] uppercase text-xs tracking-tighter">{log.coffeeType}</p>
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase">{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
+                    </div>
+                    <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 mb-3 shadow-inner">
+                      <div className="flex-1 text-center">
+                        <p className="text-[9px] font-black text-gray-300 uppercase mb-0.5">De</p>
+                        <p className="font-black text-gray-400 text-sm">R$ {log.oldPrice.toLocaleString('pt-BR')}</p>
+                      </div>
+                      <ArrowRight size={14} className="text-gray-300" />
+                      <div className="flex-1 text-center">
+                        <p className="text-[9px] font-black text-[#2e7d32] uppercase mb-0.5">Para</p>
+                        <p className="font-black text-[#2e7d32] text-lg">R$ {log.newPrice.toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Seção: Gestão de Lotes */}
+      {activeTab === 'lots' && (
+        <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 animate-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-3 mb-10">
+            <div className="p-2 bg-orange-50 rounded-xl">
+              <Zap size={24} className="text-orange-500" />
+            </div>
+            <h3 className="text-2xl font-black text-[#3e2723]">Moderação de Marketplace</h3>
+          </div>
+
+          <div className="grid gap-6">
+            {productions.filter(p => p.isPublic).map(p => (
+              <div key={p.id} className="flex flex-col md:flex-row items-center gap-6 p-6 bg-[#fdfcf8] rounded-[2.5rem] border border-gray-100 hover:border-orange-200 transition-all group">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 shrink-0">
+                  <Coffee size={24} className="text-[#3e2723]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h4 className="font-black text-lg text-[#3e2723] truncate">{p.quality}</h4>
+                    {p.isFeatured && (
+                      <span className="bg-orange-100 text-orange-600 px-3 py-0.5 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shadow-sm">
+                        <Zap size={10} fill="currentColor" /> Destaque
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    <span className="flex items-center gap-1"><MapPin size={12} /> {p.location}</span>
+                    <span className="flex items-center gap-1">R$ {p.desiredPrice}</span>
+                    <span>Safra {p.harvest}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => onToggleFeatured(p.id)}
+                    className={`px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-md active:scale-95 ${
+                      p.isFeatured 
+                        ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                        : 'bg-white text-gray-500 border border-gray-100 hover:border-orange-200'
+                    }`}
+                  >
+                    <Zap size={14} fill={p.isFeatured ? "currentColor" : "none"} />
+                    {p.isFeatured ? 'Remover Destaque' : 'Marcar Destaque'}
+                  </button>
+                </div>
               </div>
             ))}
+            {productions.filter(p => p.isPublic).length === 0 && (
+              <div className="py-20 text-center text-gray-300 font-black uppercase tracking-widest bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                Nenhum lote público para moderar
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -199,11 +303,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       <span className="text-[10px] text-gray-300 font-bold uppercase tracking-tighter">{tip.date}</span>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="p-3 bg-white text-gray-400 hover:text-red-500 rounded-xl border border-gray-50 hover:border-red-100 transition-all shadow-sm">
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
@@ -241,7 +340,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   <th className="text-left pb-4 px-4 font-black">Comprador</th>
                   <th className="text-left pb-4 px-4 font-black">E-mail</th>
                   <th className="text-left pb-4 px-4 font-black">Plano</th>
-                  <th className="text-left pb-4 px-4 font-black">Cadastro</th>
                   <th className="text-left pb-4 px-4 font-black">Status</th>
                   <th className="text-right pb-4 px-4 font-black">Ações</th>
                 </tr>
@@ -256,7 +354,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                         <div>
                           <p className="font-black text-[#3e2723]">{buyer.name}</p>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">ID: {buyer.id}</p>
                         </div>
                       </div>
                     </td>
@@ -274,9 +371,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         {buyer.plan}
                       </span>
                     </td>
-                    <td className="py-5 px-4 text-sm font-bold text-gray-400">
-                      {buyer.createdAt}
-                    </td>
                     <td className="py-5 px-4">
                       <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase ${buyer.isBlocked ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                         {buyer.isBlocked ? <ShieldAlert size={12} /> : <ShieldCheck size={12} />}
@@ -288,14 +382,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         <button 
                           onClick={() => setSelectedBuyer(buyer)}
                           className="p-2 bg-white text-gray-400 hover:text-blue-600 rounded-lg border border-gray-100 shadow-sm"
-                          title="Ver Histórico de Interesses"
                         >
                           <History size={18} />
                         </button>
                         <button 
                           onClick={() => onToggleBlock(buyer.id)}
                           className={`p-2 bg-white rounded-lg border border-gray-100 shadow-sm transition-all ${buyer.isBlocked ? 'text-green-600 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
-                          title={buyer.isBlocked ? "Desbloquear Conta" : "Bloquear Conta"}
                         >
                           {buyer.isBlocked ? <ShieldCheck size={18} /> : <ShieldAlert size={18} />}
                         </button>
@@ -306,17 +398,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
               </tbody>
             </table>
           </div>
-          
-          {filteredBuyers.length === 0 && (
-            <div className="py-20 text-center space-y-4">
-              <Users size={48} className="mx-auto text-gray-200" />
-              <p className="text-gray-400 font-bold uppercase tracking-widest">Nenhum comprador encontrado</p>
-            </div>
-          )}
         </section>
       )}
 
-      {/* Modal: Detalhes do Comprador e Histórico de Interesses */}
       {selectedBuyer && (
         <div className="fixed inset-0 z-[100] bg-[#3e2723]/60 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden relative animate-in slide-in-from-bottom-8 duration-500">
@@ -336,23 +420,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   <h4 className="text-3xl font-black text-[#3e2723]">{selectedBuyer.name}</h4>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="flex items-center gap-1 text-sm font-bold text-gray-500"><Mail size={14} /> {selectedBuyer.email}</span>
-                    <span className="text-xs font-black text-gray-300 uppercase tracking-widest">•</span>
-                    <span className="flex items-center gap-1 text-sm font-bold text-gray-500"><Calendar size={14} /> Membro desde {selectedBuyer.createdAt}</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                  <h5 className="text-lg font-black text-[#3e2723] flex items-center gap-2">
-                    <History size={20} className="text-blue-600" />
-                    Histórico de Interesse em Lotes
-                  </h5>
-                  <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-black uppercase">
-                    {getBuyerInterests(selectedBuyer.id).length} Ações
-                  </span>
-                </div>
-
+                <h5 className="text-lg font-black text-[#3e2723] flex items-center gap-2 border-b border-gray-100 pb-4">
+                  <History size={20} className="text-blue-600" />
+                  Interesses Registrados
+                </h5>
                 <div className="max-h-60 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
                   {getBuyerInterests(selectedBuyer.id).length === 0 ? (
                     <div className="py-10 text-center bg-gray-50 rounded-3xl border border-dashed border-gray-200">
@@ -363,20 +439,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                     getBuyerInterests(selectedBuyer.id).map(interest => {
                       const prod = getProductionDetails(interest.productionId);
                       return (
-                        <div key={interest.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between hover:bg-white transition-colors">
+                        <div key={interest.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className="p-2 bg-white rounded-lg shadow-sm">
-                              {/* Fix: Coffee icon was missing from imports */}
-                              <Coffee size={18} className="text-[#2e7d32]" />
-                            </div>
+                            <Coffee size={18} className="text-[#2e7d32]" />
                             <div>
                               <p className="font-black text-[#3e2723] text-sm">{prod?.quality || 'Lote Removido'}</p>
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{prod?.coffeeType} • {prod?.location}</p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase">{prod?.location}</p>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-black text-gray-400 uppercase">Interessado em</p>
-                            <p className="text-xs font-bold text-[#3e2723]">{new Date(interest.createdAt).toLocaleDateString('pt-BR')}</p>
                           </div>
                         </div>
                       );
@@ -389,12 +458,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 <button 
                   onClick={() => onToggleBlock(selectedBuyer.id)}
                   className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
-                    selectedBuyer.isBlocked 
-                      ? 'bg-green-600 text-white hover:bg-green-700' 
-                      : 'bg-orange-500 text-white hover:bg-orange-600'
+                    selectedBuyer.isBlocked ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'
                   }`}
                 >
-                  {selectedBuyer.isBlocked ? 'Desbloquear Acesso' : 'Bloquear Comprador'}
+                  {selectedBuyer.isBlocked ? 'Desbloquear' : 'Bloquear'}
                 </button>
                 <button 
                   onClick={() => setSelectedBuyer(null)}
@@ -407,6 +474,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3e272320; border-radius: 10px; }
+      `}} />
     </div>
   );
 };

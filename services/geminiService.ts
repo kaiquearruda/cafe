@@ -2,21 +2,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { CoffeeQuote, ChatMessage } from "../types";
 
-const getAIClient = () => {
-  const apiKey = process.env.API_KEY || "";
-  if (!apiKey) {
-    console.warn("API Key não encontrada. O serviço de IA funcionará em modo fallback.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 /**
  * Generates a strategic suggestion for coffee producers based on current market quotes.
  */
 export const getMarketSuggestion = async (quotes: CoffeeQuote[]) => {
-  const ai = getAIClient();
-  if (!ai) return "Analise a tendência de médio prazo antes de fechar grandes lotes.";
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const prompt = `
     Como um consultor especialista no mercado de café brasileiro, analise os seguintes dados:
@@ -37,9 +27,15 @@ export const getMarketSuggestion = async (quotes: CoffeeQuote[]) => {
     });
 
     return response.text || "Mantenha atenção às variações cambiais e climáticas para decidir o melhor momento de venda.";
-  } catch (error) {
-    console.error("Gemini Market Suggestion Error:", error);
-    return "Analise as variações do dólar e estoques globais antes de movimentar seu lote.";
+  } catch (error: any) {
+    console.warn("Gemini Market Suggestion Error (Quota probably reached):", error);
+    
+    // Fallback logic for 429 or other errors
+    const arabica = quotes.find(q => q.type === 'Arábica');
+    if (arabica && arabica.currentPrice > arabica.lastPrice) {
+      return "O mercado de Arábica mostra tendência de alta. Se possível, segure lotes de alta pontuação para capturar prêmios melhores na próxima semana.";
+    }
+    return "A volatilidade atual sugere cautela. Recomendamos fixar preços apenas para cobrir custos operacionais imediatos e aguardar estabilidade do dólar.";
   }
 };
 
@@ -51,13 +47,12 @@ export const getChatAutoReply = async (
   role: 'BUYER' | 'PRODUCER', 
   productionInfo: string
 ) => {
-  const ai = getAIClient();
-  if (!ai) return "Entendido. Vamos conversar mais sobre os detalhes desse lote em breve.";
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   const context = messages.slice(-5).map(m => `${m.senderId}: ${m.text}`).join('\n');
   const persona = role === 'BUYER' 
-    ? "Você é um comprador de café de uma grande exportadora. Você é profissional, direto e busca qualidade. Você está interessado no lote abaixo."
-    : "Você é um produtor de café experiente. Você valoriza seu grão e busca um preço justo. Você está negociando o lote abaixo.";
+    ? "Você é um comprador de café de uma grande exportadora. Você é profissional, direto e busca qualidade."
+    : "Você é um produtor de café experiente. Você valoriza seu grão e busca um preço justo.";
 
   const prompt = `
     ${persona}
@@ -67,8 +62,6 @@ export const getChatAutoReply = async (
     ${context}
     
     Responda à última mensagem de forma natural, curta (máximo 2 frases) e profissional. 
-    Se for comprador, foque em amostras ou logística. 
-    Se for produtor, foque em qualidade ou pontuação SCA.
   `;
 
   try {
@@ -82,8 +75,14 @@ export const getChatAutoReply = async (
     });
 
     return response.text?.trim() || "Entendido. Vamos alinhar os próximos passos da negociação.";
-  } catch (error) {
-    console.error("Chat Auto Reply Gemini Error:", error);
-    return "Certo, recebi sua mensagem. Vou analisar e te retorno com uma proposta.";
+  } catch (error: any) {
+    console.warn("Chat Auto Reply Gemini Error (Quota probably reached):", error);
+    
+    // Professional fallback replies
+    if (role === 'BUYER') {
+      return "Entendido. Gostaria de solicitar uma amostra deste lote para análise em nosso laboratório. Como podemos proceder?";
+    } else {
+      return "Este lote possui uma complexidade sensorial única e pontuação SCA garantida. Podemos agendar uma visita ou envio de amostra?";
+    }
   }
 };

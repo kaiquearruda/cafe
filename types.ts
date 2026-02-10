@@ -45,6 +45,15 @@ export interface CoffeeQuote {
   updatedAt: string;
 }
 
+export interface PriceChangeLog {
+  id: string;
+  coffeeType: string;
+  oldPrice: number;
+  newPrice: number;
+  adminName: string;
+  timestamp: string;
+}
+
 export interface InventoryItem {
   id: string;
   type: 'Em Coco' | 'Beneficiado' | 'Escolha' | 'Robusta';
